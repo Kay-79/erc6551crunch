@@ -29,16 +29,16 @@
 ## Usage
 
 -   ```Shell
-    cargo run --release <registry_address> <implement_address> <chain_id_hex> <nft_address_hex> <token_id_hex>
+    cargo run --release <registry_address> <implement_address> <chain_id> <nft_address> <token_id>
     ```
 
 -   ```shell
-    cargo run --release 0x000000006551c19487814612e58FE06813775758 0x41C8f39463A868d3A88af00cd0fe7102F30E44eC 0x0000000000000000000000000000000000000000000000000000000000000001 0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D 0x0000000000000000000000000000000000000000000000000000000000000001
+    cargo run --release 0x000000006551c19487814612e58FE06813775758 0x41C8f39463A868d3A88af00cd0fe7102F30E44eC 1 0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D 1
     ```
 
 ## Result
 
--   Check the result in the `output.txt` file
+-   Check the result in the `result.txt` file
 
 ## Contributions
 

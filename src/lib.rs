@@ -50,14 +50,8 @@ impl Config {
         let Ok(implement_address_vec) = hex::decode(implement_address_string) else {
             return Err("could not decode implement address argument");
         };
-        let Ok(chain_id_vec) = hex::decode(chain_id_string) else {
-            return Err("could not decode chain id argument");
-        };
         let Ok(nft_address_vec) = hex::decode(nft_address_string) else {
             return Err("could not decode nft address argument");
-        };
-        let Ok(token_id_vec) = hex::decode(token_id_string) else {
-            return Err("could not decode token id argument");
         };
         let Ok(resistry_address) = resistry_address_vec.try_into() else {
             return Err("invalid length for resistry address argument");
@@ -65,22 +59,28 @@ impl Config {
         let Ok(implement_address) = implement_address_vec.try_into() else {
             return Err("invalid length for implement address argument");
         };
-        let Ok(chain_id) = chain_id_vec.try_into() else {
-            return Err("invalid length for chain id argument");
+        let Ok(chain_id) = chain_id_string.parse::<u128>() else {
+            return Err("could not parse chain id as decimal integer");
         };
+        let chain_id_bytes: [u8; 16] = chain_id.to_be_bytes();
+        let mut chain_id_vec = [0u8; 32];
+        chain_id_vec[16..].copy_from_slice(&chain_id_bytes);
         let Ok(nft_address) = nft_address_vec.try_into() else {
             return Err("invalid length for nft address argument");
         };
-        let Ok(token_id) = token_id_vec.try_into() else {
-            return Err("invalid length for token id argument");
+        let Ok(token_id) = token_id_string.parse::<u128>() else {
+            return Err("could not parse token id as decimal integer");
         };
+        let token_id_bytes: [u8; 16] = token_id.to_be_bytes();
+        let mut token_id_vec = [0u8; 32];
+        token_id_vec[16..].copy_from_slice(&token_id_bytes);
 
         Ok(Self {
             resistry_address,
             implement_address,
-            chain_id,
+            chain_id: chain_id_vec,
             nft_address,
-            token_id,
+            token_id: token_id_vec,
         })
     }
 }
@@ -125,8 +125,9 @@ pub fn cpu(config: Config) -> Result<(), Box<dyn Error>> {
             let address = <&Address>::try_from(&keccak_create2[12..]).unwrap();
             let mut total = 0;
             let mut leading = 21;
+            let target_char = 17;
             for (i, &b) in address.iter().enumerate() {
-                if b == 0 {
+                if b == target_char {
                     total += 1;
                 } else if leading == 21 {
                     leading = i;
