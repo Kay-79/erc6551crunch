@@ -1,6 +1,6 @@
 # erc6551crunch
 
-`erc6551crunch` is a [Rust](https://www.rust-lang.org) implementation of the profanity tokenbound account (ERC6551)
+`erc6551crunch` is a [Rust](https://www.rust-lang.org) implementation of the profanity tokenbound account (ERC6551).
 
 ## Installation
 
@@ -32,8 +32,28 @@
     cargo run --release <registry_address> <implement_address> <chain_id> <nft_address> <token_id>
     ```
 
--   ```shell
+-   Example: if you use implementUpgradeable for Tokenbound Account, you can use the following command to crunch the account.
+
+    -   `registry_address`: `0x000000006551c19487814612e58FE06813775758`
+    -   `implement_address`: `0x41C8f39463A868d3A88af00cd0fe7102F30E44eC`
+    -   `chain_id`: `1` (the chain ID where the NFT contract is deployed)
+    -   `nft_address`: `0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D` (Bored Ape Yacht Club)
+    -   `token_id`: `1` (BAYC #1)
+
+    ```shell
     cargo run --release 0x000000006551c19487814612e58FE06813775758 0x41C8f39463A868d3A88af00cd0fe7102F30E44eC 1 0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D 1
+    ```
+
+-   Example: if you use implementProxy for Tokenbound Account, you can use the following command to crunch the account.
+
+    -   `registry_address`: `0x000000006551c19487814612e58FE06813775758`
+    -   `implement_proxy_address`: `0x55266d75D1a14E4572138116aF39863Ed6596E7F`
+    -   `chain_id`: `1` (the chain ID where the NFT contract is deployed)
+    -   `nft_address`: `0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D` (Bored Ape Yacht Club)
+    -   `token_id`: `1` (BAYC #1)
+
+    ```shell
+    cargo run --release 0x000000006551c19487814612e58FE06813775758 0x55266d75D1a14E4572138116aF39863Ed6596E7F 1 0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D 1
     ```
 
 ## Result
