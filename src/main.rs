@@ -14,7 +14,6 @@ fn main() {
         println!("Usage: erc6551crunch [OPTIONS]");
         println!();
         println!("Required Arguments:");
-        println!("  -r, --registry <address>       ERC6551 Registry contract address");
         println!("  -i, --impl <address>           Implementation contract address");
         println!("  -c, --chain <id>               Chain ID (decimal)");
         println!("  -n, --nft <address>            NFT contract address");
@@ -23,26 +22,24 @@ fn main() {
         println!("      OR --contains <pattern>    Search for addresses CONTAINING pattern");
         println!();
         println!("Optional Arguments:");
+        println!(
+            "  -r, --registry <address>       ERC6551 Registry (default: 0x000000006551c19487814612e58FE06813775758)"
+        );
         println!("  -w, --workers <num>            Number of CPU threads (default: all cores)");
         println!("  -g, --gpu                      Use GPU acceleration (OpenCL)");
         println!("      --list-gpus                List available GPU devices");
         println!("  -h, --help                     Show this help message");
         println!();
         println!("Examples:");
-        println!("  # CPU mode - Search for addresses starting with 'dead':");
-        println!("  erc6551crunch -r 0x000000006551c19487814612e58FE06813775758 \\");
-        println!("                -i 0x55266d75D1a14E4572138116aF39863Ed6596E7F \\");
+        println!("  # Find addresses starting with '00000' (uses default registry):");
+        println!("  erc6551crunch -i 0x55266d75D1a14E4572138116aF39863Ed6596E7F \\");
         println!("                -c 1 -n 0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D -t 1 \\");
-        println!("                -p dead");
+        println!("                -p 00000");
         println!();
         println!("  # GPU mode - Much faster:");
-        println!("  erc6551crunch -r 0x000000006551c19487814612e58FE06813775758 \\");
-        println!("                -i 0x55266d75D1a14E4572138116aF39863Ed6596E7F \\");
+        println!("  erc6551crunch -i 0x55266d75D1a14E4572138116aF39863Ed6596E7F \\");
         println!("                -c 1 -n 0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D -t 1 \\");
-        println!("                -p dead --gpu");
-        println!();
-        println!("  # Search for addresses containing 'beef':");
-        println!("  erc6551crunch -r 0x... -i 0x... -c 1 -n 0x... -t 1 --contains beef");
+        println!("                -p 00000000 --gpu");
         println!();
         println!("  # List available GPUs:");
         println!("  erc6551crunch --list-gpus");

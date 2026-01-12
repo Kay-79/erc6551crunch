@@ -12,6 +12,14 @@ pub mod gpu;
 pub use gpu::{gpu, list_gpus};
 const CONTROL_CHARACTER: u8 = 0xff;
 const MAX_INCREMENTER: u64 = 0xffffffffffff;
+
+/// ERC6551 Registry address (same on all EVM chains)
+/// https://eips.ethereum.org/EIPS/eip-6551
+pub const ERC6551_REGISTRY: [u8; 20] = [
+    0x00, 0x00, 0x00, 0x00, 0x65, 0x51, 0xc1, 0x94, 0x87, 0x81,
+    0x46, 0x12, 0xe5, 0x8F, 0xE0, 0x68, 0x13, 0x77, 0x57, 0x58,
+];
+
 const ERC6551_CONSTRUCTOR_HEADER: [u8; 20] = [
     61, 96, 173, 128, 96, 10, 61, 57, 129, 243, 54, 61, 61, 55, 61, 61, 61, 54, 61, 115,
 ];
@@ -97,8 +105,7 @@ impl Config {
             }
         }
 
-        let resistry_address_string =
-            resistry_address_string.ok_or("Missing --registry argument")?;
+        let resistry_address_string = resistry_address_string;
         let implement_address_string =
             implement_address_string.ok_or("Missing --implementation argument")?;
         let chain_id_string = chain_id_string.ok_or("Missing --chain argument")?;
@@ -109,17 +116,21 @@ impl Config {
             return Err("Missing pattern. Use --prefix or --contains to specify a pattern.");
         }
 
-        let Ok(resistry_address_vec) = hex::decode(resistry_address_string) else {
-            return Err("could not decode resistry address argument");
+        // Use default ERC6551 Registry if not specified
+        let resistry_address: [u8; 20] = if let Some(addr_str) = resistry_address_string {
+            let Ok(vec) = hex::decode(addr_str) else {
+                return Err("could not decode registry address argument");
+            };
+            vec.try_into().map_err(|_| "invalid length for registry address")?  
+        } else {
+            ERC6551_REGISTRY
         };
+        
         let Ok(implement_address_vec) = hex::decode(implement_address_string) else {
             return Err("could not decode implement address argument");
         };
         let Ok(nft_address_vec) = hex::decode(nft_address_string) else {
             return Err("could not decode nft address argument");
-        };
-        let Ok(resistry_address) = resistry_address_vec.try_into() else {
-            return Err("invalid length for resistry address argument");
         };
         let Ok(implement_address) = implement_address_vec.try_into() else {
             return Err("invalid length for implement address argument");
