@@ -1,6 +1,7 @@
 # erc6551crunch
 
 Rust tool for generating vanity ERC6551 tokenbound account addresses.
+Supports both **CPU** (multi-threaded) and **GPU** (OpenCL) acceleration.
 
 ## Installation
 
@@ -13,6 +14,11 @@ git clone https://github.com/Kay-79/erc6551crunch.git
 cd erc6551crunch
 cargo build --release
 ```
+
+### GPU Requirements (Optional)
+- **NVIDIA**: Install CUDA Toolkit
+- **AMD**: Install AMD APP SDK or ROCm
+- **Intel**: Install Intel OpenCL Runtime
 
 ## Usage
 
@@ -29,32 +35,43 @@ Required:
 Optional:
   -p, --prefix <pattern>   Find addresses starting with pattern
       --contains <pattern> Find addresses containing pattern
-  -w, --workers <num>      Number of threads (default: all cores)
+  -w, --workers <num>      CPU threads (default: all cores)
+  -g, --gpu                Use GPU acceleration (OpenCL)
+      --list-gpus          List available GPU devices
   -h, --help               Show help
 ```
 
 ## Examples
 
 ```shell
-# Find addresses starting with "dead"
+# CPU mode - Find addresses starting with "00000"
 .\target\release\erc6551crunch.exe \
   -r 0x000000006551c19487814612e58FE06813775758 \
   -i 0x55266d75D1a14E4572138116aF39863Ed6596E7F \
   -c 1 \
   -n 0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D \
   -t 1 \
-  -p dead
+  -p "00000"
 
-# Find addresses containing "beef" with 4 threads
+# GPU mode - Much faster! Find addresses starting with "00000000"
 .\target\release\erc6551crunch.exe \
   -r 0x000000006551c19487814612e58FE06813775758 \
   -i 0x55266d75D1a14E4572138116aF39863Ed6596E7F \
   -c 1 \
   -n 0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D \
   -t 1 \
-  --contains beef \
-  -w 4
+  -p 00000000 --gpu
+
+# List available GPUs
+.\target\release\erc6551crunch.exe --list-gpus
 ```
+
+## Performance
+
+| Mode | Speed (approx) |
+|------|----------------|
+| CPU (8 cores) | ~5-10M/s |
+| GPU (RTX 3050 Ti) | ~50-100M/s |
 
 ## Output
 

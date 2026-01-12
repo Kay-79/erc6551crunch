@@ -19,30 +19,33 @@ fn main() {
         println!("  -c, --chain <id>               Chain ID (decimal)");
         println!("  -n, --nft <address>            NFT contract address");
         println!("  -t, --token <id>               Token ID (decimal)");
+        println!("  -p, --prefix <pattern>         Search for addresses STARTING with pattern");
+        println!("      OR --contains <pattern>    Search for addresses CONTAINING pattern");
         println!();
         println!("Optional Arguments:");
-        println!("  -p, --prefix <pattern>         Search for addresses STARTING with pattern");
-        println!("      --contains <pattern>       Search for addresses CONTAINING pattern");
-        println!("  -w, --workers <num>            Number of threads (default: all CPU cores)");
+        println!("  -w, --workers <num>            Number of CPU threads (default: all cores)");
+        println!("  -g, --gpu                      Use GPU acceleration (OpenCL)");
+        println!("      --list-gpus                List available GPU devices");
         println!("  -h, --help                     Show this help message");
         println!();
         println!("Examples:");
-        println!("  # Search for addresses with reward (0x11 pattern):");
-        println!("  erc6551crunch -r 0x000000006551c19487814612e58FE06813775758 \\");
-        println!("                -i 0x55266d75D1a14E4572138116aF39863Ed6596E7F \\");
-        println!("                -c 1 -n 0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D -t 1");
-        println!();
-        println!("  # Search for addresses STARTING with 'dead':");
+        println!("  # CPU mode - Search for addresses starting with 'dead':");
         println!("  erc6551crunch -r 0x000000006551c19487814612e58FE06813775758 \\");
         println!("                -i 0x55266d75D1a14E4572138116aF39863Ed6596E7F \\");
         println!("                -c 1 -n 0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D -t 1 \\");
         println!("                -p dead");
         println!();
-        println!("  # Search for addresses CONTAINING 'beef':");
+        println!("  # GPU mode - Much faster:");
         println!("  erc6551crunch -r 0x000000006551c19487814612e58FE06813775758 \\");
         println!("                -i 0x55266d75D1a14E4572138116aF39863Ed6596E7F \\");
         println!("                -c 1 -n 0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D -t 1 \\");
-        println!("                --contains beef");
+        println!("                -p dead --gpu");
+        println!();
+        println!("  # Search for addresses containing 'beef':");
+        println!("  erc6551crunch -r 0x... -i 0x... -c 1 -n 0x... -t 1 --contains beef");
+        println!();
+        println!("  # List available GPUs:");
+        println!("  erc6551crunch --list-gpus");
         process::exit(0);
     }
 
@@ -52,8 +55,20 @@ fn main() {
         process::exit(1);
     });
 
-    if let Err(e) = erc6551crunch::cpu(config) {
-        eprintln!("CPU application error: {e}");
-        process::exit(1);
+    if config.use_gpu {
+        println!("🚀 GPU Mode enabled");
+        if let Err(e) = erc6551crunch::gpu(config) {
+            eprintln!("GPU application error: {e}");
+            eprintln!("Tip: Make sure you have OpenCL drivers installed.");
+            eprintln!("     For NVIDIA: Install CUDA Toolkit");
+            eprintln!("     For AMD: Install AMD APP SDK or ROCm");
+            eprintln!("     For Intel: Install Intel OpenCL Runtime");
+            process::exit(1);
+        }
+    } else {
+        if let Err(e) = erc6551crunch::cpu(config) {
+            eprintln!("CPU application error: {e}");
+            process::exit(1);
+        }
     }
 }
