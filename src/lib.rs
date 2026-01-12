@@ -1,9 +1,12 @@
 use alloy_primitives::{hex, Address, FixedBytes};
-use fs4::FileExt;
 use rayon::prelude::*;
 use std::error::Error;
 use std::fs::{File, OpenOptions};
 use std::io::prelude::*;
+use std::io::stdout;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, Mutex};
+use std::time::Instant;
 use tiny_keccak::{Hasher, Keccak};
 mod reward;
 pub use reward::Reward;
@@ -22,27 +25,71 @@ pub struct Config {
     pub chain_id: [u8; 32],
     pub nft_address: [u8; 20],
     pub token_id: [u8; 32],
+    pub pattern: String,
+    pub pattern_mode: PatternMode,
+    pub num_threads: usize,
+}
+
+#[derive(Clone, Copy, PartialEq)]
+pub enum PatternMode {
+    Prefix,   // Pattern must be at start of address
+    Contains, // Pattern can be anywhere in address
+    Reward,   // Original reward-based matching (0x11 bytes)
 }
 
 impl Config {
     pub fn new(mut args: std::env::Args) -> Result<Self, &'static str> {
-        args.next();
+        args.next(); // skip program name
 
-        let Some(resistry_address_string) = args.next() else {
-            return Err("didn't get a resistry_address argument");
-        };
-        let Some(implement_address_string) = args.next() else {
-            return Err("didn't get a implement_address argument");
-        };
-        let Some(chain_id_string) = args.next() else {
-            return Err("didn't get a chain_id argument");
-        };
-        let Some(nft_address_string) = args.next() else {
-            return Err("didn't get a nft_address argument");
-        };
-        let Some(token_id_string) = args.next() else {
-            return Err("didn't get a token_id argument");
-        };
+        let mut resistry_address_string: Option<String> = None;
+        let mut implement_address_string: Option<String> = None;
+        let mut chain_id_string: Option<String> = None;
+        let mut nft_address_string: Option<String> = None;
+        let mut token_id_string: Option<String> = None;
+        let mut pattern = String::new();
+        let mut pattern_mode = PatternMode::Reward;
+        let mut num_threads: usize = 0; // 0 = auto (use all cores)
+
+        while let Some(arg) = args.next() {
+            match arg.as_str() {
+                "--workers" | "-w" => {
+                    let threads_str = args.next().ok_or("--workers requires a number")?;
+                    num_threads = threads_str.parse().map_err(|_| "--workers must be a positive number")?;
+                }
+                "--registry" | "-r" => {
+                    resistry_address_string = Some(args.next().ok_or("--registry requires an address")?);
+                }
+                "--implementation" | "--impl" | "-i" => {
+                    implement_address_string = Some(args.next().ok_or("--implementation requires an address")?);
+                }
+                "--chain" | "-c" => {
+                    chain_id_string = Some(args.next().ok_or("--chain requires a chain ID")?);
+                }
+                "--nft" | "-n" => {
+                    nft_address_string = Some(args.next().ok_or("--nft requires an address")?);
+                }
+                "--token" | "-t" => {
+                    token_id_string = Some(args.next().ok_or("--token requires a token ID")?);
+                }
+                "--prefix" | "-p" => {
+                    pattern = args.next().ok_or("--prefix requires a pattern")?;
+                    pattern_mode = PatternMode::Prefix;
+                }
+                "--contains" => {
+                    pattern = args.next().ok_or("--contains requires a pattern")?;
+                    pattern_mode = PatternMode::Contains;
+                }
+                _ => {
+                    return Err("Unknown argument. Use --help for usage.");
+                }
+            }
+        }
+
+        let resistry_address_string = resistry_address_string.ok_or("Missing --registry argument")?;
+        let implement_address_string = implement_address_string.ok_or("Missing --implementation argument")?;
+        let chain_id_string = chain_id_string.ok_or("Missing --chain argument")?;
+        let nft_address_string = nft_address_string.ok_or("Missing --nft argument")?;
+        let token_id_string = token_id_string.ok_or("Missing --token argument")?;
 
         let Ok(resistry_address_vec) = hex::decode(resistry_address_string) else {
             return Err("could not decode resistry address argument");
@@ -81,12 +128,31 @@ impl Config {
             chain_id: chain_id_vec,
             nft_address,
             token_id: token_id_vec,
+            pattern,
+            pattern_mode,
+            num_threads,
         })
     }
 }
 
 pub fn cpu(config: Config) -> Result<(), Box<dyn Error>> {
-    let file = output_file();
+    // Set thread pool size
+    let num_threads = if config.num_threads > 0 {
+        config.num_threads
+    } else {
+        rayon::current_num_threads()
+    };
+    
+    if config.num_threads > 0 {
+        rayon::ThreadPoolBuilder::new()
+            .num_threads(num_threads)
+            .build_global()
+            .ok(); // Ignore error if already initialized
+    }
+    
+    println!("🧵 Using {} threads", num_threads);
+    
+    let file = Arc::new(Mutex::new(output_file()));
     let rewards = Reward::new();
     let mut header_bytes_code_header = [0; 55];
     header_bytes_code_header[0..20].copy_from_slice(&ERC6551_CONSTRUCTOR_HEADER);
@@ -97,6 +163,51 @@ pub fn cpu(config: Config) -> Result<(), Box<dyn Error>> {
     header_bytes_code_footer[0..32].copy_from_slice(&config.chain_id);
     header_bytes_code_footer[44..64].copy_from_slice(&config.nft_address);
     header_bytes_code_footer[64..].copy_from_slice(&config.token_id);
+
+    // Parse pattern - convert to lowercase hex bytes for matching
+    let pattern = config.pattern.to_lowercase();
+    let pattern = pattern.strip_prefix("0x").unwrap_or(&pattern);
+    let pattern_mode = config.pattern_mode;
+    
+    match pattern_mode {
+        PatternMode::Prefix => println!("🔍 Searching for addresses starting with: 0x{}", pattern),
+        PatternMode::Contains => println!("🔍 Searching for addresses containing: 0x{}", pattern),
+        PatternMode::Reward => println!("🔍 Searching for addresses with reward (target byte: 0x11)"),
+    }
+    println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    
+    // Speed tracking with Arc for thread safety
+    let total_checked = Arc::new(AtomicU64::new(0));
+    let found_count = Arc::new(AtomicU64::new(0));
+    let start_time = Instant::now();
+    
+    // Spawn a thread to print speed stats
+    let total_checked_clone = Arc::clone(&total_checked);
+    let found_count_clone = Arc::clone(&found_count);
+    std::thread::spawn(move || {
+        use std::io::Write;
+        let mut last_count = 0u64;
+        loop {
+            std::thread::sleep(std::time::Duration::from_secs(2));
+            let current = total_checked_clone.load(Ordering::Relaxed);
+            let found = found_count_clone.load(Ordering::Relaxed);
+            let elapsed = start_time.elapsed().as_secs_f64();
+            let speed = current as f64 / elapsed;
+            let instant_speed = (current - last_count) as f64 / 2.0;
+            last_count = current;
+            
+            eprint!(
+                "\r⚡ Speed: {:.2}M/s | Avg: {:.2}M/s | Checked: {}M | Found: {} | Time: {:.0}s    ",
+                instant_speed / 1_000_000.0,
+                speed / 1_000_000.0,
+                current / 1_000_000,
+                found,
+                elapsed
+            );
+            let _ = std::io::stderr().flush();
+        }
+    });
+
     loop {
         let mut header = [0; 47];
         header[0] = CONTROL_CHARACTER;
@@ -123,6 +234,65 @@ pub fn cpu(config: Config) -> Result<(), Box<dyn Error>> {
             let mut keccak_create2: [u8; 32] = [0; 32];
             hash.finalize(&mut keccak_create2);
             let address = <&Address>::try_from(&keccak_create2[12..]).unwrap();
+            
+            total_checked.fetch_add(1, Ordering::Relaxed);
+            
+            // Check pattern match based on mode
+            match pattern_mode {
+                PatternMode::Prefix => {
+                    let addr_hex = hex::encode(address); // already lowercase
+                    if !addr_hex.starts_with(pattern) {
+                        return;
+                    }
+                    // Pattern matched at prefix!
+                    found_count.fetch_add(1, Ordering::Relaxed);
+                    let header_hex_string = hex::encode(header);
+                    let body_hex_string = hex::encode(salt_incremented_segment);
+                    let full_salt = format!("0x{}{}", &header_hex_string[42..], &body_hex_string);
+                    let output = format!(
+                        "\n✅ PREFIX MATCH!\nsalt: {full_salt}\ninit_code_hash: 0x{}\naddress: 0x{}\n",
+                        hex::encode(keccak_bytescode),
+                        addr_hex
+                    );
+                    print!("{output}");
+                    let _ = stdout().flush();
+                    {
+                        let mut f = file.lock().unwrap();
+                        writeln!(f, "salt: {} => init_code_hash: 0x{} => address: 0x{} => pattern: {}", 
+                            full_salt, hex::encode(keccak_bytescode), addr_hex, pattern
+                        ).expect("Couldn't write to `result.txt` file.");
+                    }
+                    return;
+                }
+                PatternMode::Contains => {
+                    let addr_hex = hex::encode(address); // already lowercase
+                    if !addr_hex.contains(pattern) {
+                        return;
+                    }
+                    // Pattern found in address!
+                    found_count.fetch_add(1, Ordering::Relaxed);
+                    let header_hex_string = hex::encode(header);
+                    let body_hex_string = hex::encode(salt_incremented_segment);
+                    let full_salt = format!("0x{}{}", &header_hex_string[42..], &body_hex_string);
+                    let output = format!(
+                        "\n✅ CONTAINS MATCH!\nsalt: {full_salt}\ninit_code_hash: 0x{}\naddress: 0x{}\n",
+                        hex::encode(keccak_bytescode),
+                        addr_hex
+                    );
+                    print!("{output}");
+                    let _ = stdout().flush();
+                    {
+                        let mut f = file.lock().unwrap();
+                        writeln!(f, "salt: {} => init_code_hash: 0x{} => address: 0x{} => pattern: {}", 
+                            full_salt, hex::encode(keccak_bytescode), addr_hex, pattern
+                        ).expect("Couldn't write to `result.txt` file.");
+                    }
+                    return;
+                }
+                PatternMode::Reward => {
+                    // Continue to reward-based matching below
+                }
+            }
             let mut total = 0;
             let mut leading = 21;
             let target_char = 17;
@@ -144,25 +314,47 @@ pub fn cpu(config: Config) -> Result<(), Box<dyn Error>> {
             let header_hex_string = hex::encode(header);
             let body_hex_string = hex::encode(salt_incremented_segment);
             let full_salt = format!("0x{}{}", &header_hex_string[42..], &body_hex_string);
+            found_count.fetch_add(1, Ordering::Relaxed);
             let output = format!(
-                "salt: {full_salt} => init_code_hash: 0x{} => address: {address} => reward: {}",
+                "\n✅ REWARD FOUND!\nsalt: {full_salt}\ninit_code_hash: 0x{}\naddress: {address}\nreward: {}\n",
                 hex::encode(keccak_bytescode),
                 reward_amount.unwrap_or("0")
             );
-            println!("{output}");
-            file.lock_exclusive().expect("Couldn't lock file.");
-            writeln!(&file, "{output}").expect("Couldn't write to `result.txt` file.");
-            file.unlock().expect("Couldn't unlock file.")
+            print!("{output}");
+            let _ = stdout().flush();
+            {
+                let mut f = file.lock().unwrap();
+                writeln!(f, "salt: {} => init_code_hash: 0x{} => address: {} => reward: {}",
+                    full_salt, hex::encode(keccak_bytescode), address, reward_amount.unwrap_or("0")
+                ).expect("Couldn't write to `result.txt` file.");
+            }
         });
     }
 }
 
 #[track_caller]
 fn output_file() -> File {
+    // Always save to executable's parent directory (project root when running from target/release)
+    let result_path = std::env::current_exe()
+        .ok()
+        .and_then(|exe| exe.parent().map(|p| p.to_path_buf()))
+        .and_then(|dir| {
+            // If running from target/release, go up 2 levels to project root
+            if dir.ends_with("release") || dir.ends_with("debug") {
+                dir.parent().and_then(|p| p.parent()).map(|p| p.to_path_buf())
+            } else {
+                Some(dir)
+            }
+        })
+        .map(|dir| dir.join("result.txt"))
+        .unwrap_or_else(|| std::path::PathBuf::from("result.txt"));
+    
+    println!("📁 Saving results to: {}", result_path.display());
+    
     OpenOptions::new()
         .append(true)
         .create(true)
         .read(true)
-        .open("result.txt")
+        .open(&result_path)
         .expect("Could not create or open `result.txt` file.")
 }

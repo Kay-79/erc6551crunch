@@ -1,70 +1,70 @@
 # erc6551crunch
 
-`erc6551crunch` is a [Rust](https://www.rust-lang.org) implementation of the profanity tokenbound account (ERC6551).
+Rust tool for generating vanity ERC6551 tokenbound account addresses.
 
 ## Installation
 
-1. Install Rust
+```shell
+# Install Rust
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 
--   ```shell
-    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-    ```
-
-2. Install `erc6551crunch`
-
--   ```shell
-    git clone https://github.com/Kay-79/erc6551crunch.git
-    ```
--   ```shell
-    cd erc6551crunch
-    ```
-
-3. Build
-
--   ```shell
-    cargo build --release
-    ```
--   Now you can crunch your profanity tokenbound account
+# Clone and build
+git clone https://github.com/Kay-79/erc6551crunch.git
+cd erc6551crunch
+cargo build --release
+```
 
 ## Usage
 
--   ```Shell
-    cargo run --release <registry_address> <implement_address> <chain_id> <nft_address> <token_id>
-    ```
+```
+erc6551crunch [OPTIONS]
 
--   Example: if you use implementUpgradeable for Tokenbound Account, you can use the following command to crunch the account.
+Required:
+  -r, --registry <addr>    Registry address
+  -i, --impl <addr>        Implementation address
+  -c, --chain <id>         Chain ID
+  -n, --nft <addr>         NFT contract address
+  -t, --token <id>         Token ID
 
-    -   `registry_address`: `0x000000006551c19487814612e58FE06813775758`
-    -   `implement_address`: `0x41C8f39463A868d3A88af00cd0fe7102F30E44eC`
-    -   `chain_id`: `1` (the chain ID where the NFT contract is deployed)
-    -   `nft_address`: `0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D` (Bored Ape Yacht Club)
-    -   `token_id`: `1` (BAYC #1)
+Optional:
+  -p, --prefix <pattern>   Find addresses starting with pattern
+      --contains <pattern> Find addresses containing pattern
+  -w, --workers <num>      Number of threads (default: all cores)
+  -h, --help               Show help
+```
 
-    ```shell
-    cargo run --release 0x000000006551c19487814612e58FE06813775758 0x41C8f39463A868d3A88af00cd0fe7102F30E44eC 1 0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D 1
-    ```
+## Examples
 
--   Example: if you use implementProxy for Tokenbound Account, you can use the following command to crunch the account.
+```shell
+# Find addresses starting with "dead"
+.\target\release\erc6551crunch.exe \
+  -r 0x000000006551c19487814612e58FE06813775758 \
+  -i 0x55266d75D1a14E4572138116aF39863Ed6596E7F \
+  -c 1 \
+  -n 0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D \
+  -t 1 \
+  -p dead
 
-    -   `registry_address`: `0x000000006551c19487814612e58FE06813775758`
-    -   `implement_proxy_address`: `0x55266d75D1a14E4572138116aF39863Ed6596E7F`
-    -   `chain_id`: `1` (the chain ID where the NFT contract is deployed)
-    -   `nft_address`: `0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D` (Bored Ape Yacht Club)
-    -   `token_id`: `1` (BAYC #1)
+# Find addresses containing "beef" with 4 threads
+.\target\release\erc6551crunch.exe \
+  -r 0x000000006551c19487814612e58FE06813775758 \
+  -i 0x55266d75D1a14E4572138116aF39863Ed6596E7F \
+  -c 1 \
+  -n 0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D \
+  -t 1 \
+  --contains beef \
+  -w 4
+```
 
-    ```shell
-    cargo run --release 0x000000006551c19487814612e58FE06813775758 0x55266d75D1a14E4572138116aF39863Ed6596E7F 1 0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D 1
-    ```
+## Output
 
-## Result
+Results saved to `result.txt`:
 
--   Check the result in the `result.txt` file
-
-## Contributions
-
-PRs welcome!
+```
+salt: 0x... => init_code_hash: 0x... => address: 0xdead... => pattern: dead
+```
 
 ## Acknowledgements
 
--   [`tokenbound`](https://github.com/tokenbound)
--   [`create2crunch`](https://github.com/0age/create2crunch)
+- [tokenbound](https://github.com/tokenbound)
+- [create2crunch](https://github.com/0age/create2crunch)
