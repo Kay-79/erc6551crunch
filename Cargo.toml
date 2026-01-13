@@ -2,6 +2,20 @@
 name = "erc6551crunch"
 version = "0.2.0"
 edition = "2024"
+description = "A Rust program for finding salts that create gas-efficient Ethereum tokenbound addresses."
+license = "MIT"
+repository = "https://github.com/Kay-79/erc6551crunch"
+readme = "README.md"
+keywords = [
+    "ethereum",
+    "erc6551",
+    "tokenbound",
+    "address",
+    "salt",
+    "cruncher",
+    "create2",
+]
+categories = ["command-line-utilities"]
 
 [dependencies]
 alloy-primitives = { version = "1.5.2", features = ["rand"] }

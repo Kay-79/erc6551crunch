@@ -51,7 +51,7 @@ Optional:
 
 ```shell
 # CPU mode
-.\target\release\erc6551crunch.exe \
+.\target\release\erc6551crunch \
   -i 0x55266d75D1a14E4572138116aF39863Ed6596E7F \
   -c 1 \
   -n 0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D \
@@ -60,7 +60,7 @@ Optional:
   -w 8
 
 # GPU mode
-.\target\release\erc6551crunch.exe \
+.\target\release\erc6551crunch \
   -i 0x55266d75D1a14E4572138116aF39863Ed6596E7F \
   -c 1 \
   -n 0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D \
@@ -69,7 +69,7 @@ Optional:
   --gpu
 
 # List available GPUs
-erc6551crunch --list-gpus
+.\target\release\erc6551crunch --list-gpus
 ```
 
 ## Verify Result
